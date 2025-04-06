@@ -1,0 +1,130 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: go_backend
+  title: Backend GO
+  description: Aplicação backend em Golang 1.22
+  tags:
+    - backend:api
+    - go
+    - 1.22
+spec:
+  owner: DevNetOps-Solutions
+  type: service
+
+  parameters:
+    - title: Preencha as informações para criar o novo componente
+      required:
+        - projectName
+        - description
+        - costCenter
+        - port
+      properties:
+        description:
+          title: Descrição
+          type: string
+          description: Descrição do projeto em no maximo 100 palavras
+          maxLength: 100
+          ui:autofocus: true
+          ui:options:
+            placeholder: Descrição sucinta do projeto
+        projectName:
+          title: Nome do Projeto
+          type: string
+          description: Nome do projeto
+          maxLength: 15
+          ui:autofocus: true
+          ui:options:
+            placeholder: Nome do projeto
+        port:
+          title: Porta de comunicacão da aplicação externa
+          type: number
+          default: 8080
+          description: Escreve para alterar o padrão da porta exposta
+        costCenter:
+          title: Centro de Custo
+          type: string
+          description: Centro de custo para o projeto
+          enum:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+          enumNames:
+            - centro_custo_1
+            - centro_custo_2
+            - centro_custo_3
+            - centro_custo_4
+            - centro_custo_5
+        system:
+          title: Sistema
+          type: string
+          default: sistema-legal
+
+        appType:
+          title: Tipo da Aplicação
+          type: string
+          default: api
+
+  steps:
+    - id: sourceCodeTemplate
+      name: Gerando código fonte da aplicaçãio
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          orgName: DevNetOps-Solutions
+          repoName: ${{ parameters.projectName }}
+          system: ${{ parameters.system }}
+          applicationType: ${{ parameters.appType }}
+          description: ${{ parameters.description }}
+          port: ${{ parameters.port }}
+          sourceControl: github.com
+
+    - id: ciTemplate
+      name: Gerando esteira de deployment da aplicação
+      action: fetch:template
+      input:
+        url: ../../../skeletons/github-actions/
+        copyWithoutTemplating:
+          - .github/workflows/
+        values:
+          orgName: vvrepo
+          repoName: ${{ parameters.repoName }}
+          system: ${{ parameters.system }}
+          applicationType: ${{ parameters.appType }}
+          description: ${{ parameters.description }}
+          port: ${{ parameters.port }}
+          sourceControl: github.com
+
+    - id: publish
+      name: Criando o repositório no GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: github.com?owner=DevNetOps-Solutions&repo=${{ parameters.projectName }}
+        defaultBranch: main
+
+    - id: configRepoTemplate
+      name: Gerando repo de config da aplicaçãio
+      action: fetch:template
+      input:
+        url: ../../repo-config
+        values:
+          orgName: DevNetOps-Solutions
+          repoName: ${{ parameters.projectName }}
+          system: ${{ parameters.system }}
+          applicationType: ${{ parameters.appType }}
+          description: ${{ parameters.description }}
+          port: ${{ parameters.port }}
+          sourceControl: github.com
+
+  output:
+    links:
+      - title: Open the Source Code Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open the Catalog Info Component
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
